@@ -20,6 +20,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
+import play.Play;
+
 import java.io.IOException;
 
 
@@ -41,7 +43,16 @@ public final class HDFSContext {
    */
   public static void load() {
     try {
-      HDFS_BLOCK_SIZE = FileSystem.get(new Configuration()).getDefaultBlockSize(new Path("/"));
+      Configuration conf = new Configuration();
+      FileSystem fs = FileSystem.get(conf);
+      Boolean isFederationCluster = conf.get("fs.defaultFS").startsWith("viewfs");
+      if (isFederationCluster == false)
+        HDFS_BLOCK_SIZE = fs.getDefaultBlockSize(new Path("/"));
+      else {
+        String specificFederation = Play.application().configuration().getString("hdfs.federation.namespace",
+                conf.get("dfs.nameservices").split(",")[0]);
+        HDFS_BLOCK_SIZE = fs.getDefaultBlockSize(new Path(specificFederation));
+      }
     } catch (IOException e) {
       logger.error("Error getting FS Block Size!", e);
     }
