@@ -228,7 +228,25 @@ class SparkFSFetcher(fetcherConfData: FetcherConfigurationData) extends Elephant
         replayBus.addListener(executorsListener)
         replayBus.addListener(storageListener)
 
-        val logPath = new Path(_logDir, appId)
+        val logPath = {
+          var validPath = new Path(_logDir, appId)
+          if (!fs.exists(validPath)) {
+            var foundIt = false
+            val retryTimes = 5
+            var retryNum = 1
+            while (!foundIt && retryNum < retryTimes) {
+              val tmpPath = new Path(_logDir, appId + "_" + retryNum)
+              if (fs.exists(tmpPath)) {
+                foundIt = true
+                validPath = tmpPath
+              }
+              retryNum += 1
+            }
+          }
+          logger.info("[Meituan]Found valid path: " + validPath.toString)
+          validPath
+        }
+//        val logPath = new Path(_logDir, appId)
         val logInput: InputStream =
           if (isLegacyLogDirectory(logPath)) {
             if (!shouldThrottle(logPath)) {
