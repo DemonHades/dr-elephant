@@ -120,6 +120,17 @@ if [ -n "${enable_analytics}" ]; then
   OPTS+=" -Denable.analytics=$enable_analytics"
 fi
 
+# Enable Dropwizard metrics if configured
+if [ -n "${metrics}" ]; then
+  OPTS+=" -Dmetrics=$metrics"
+fi
+
+# Enable metrics agent jar if configured. Agent publishes metrics to other apps.
+if [ -n "${metrics_agent_jar}" ]; then
+  OPTS+=" -J$metrics_agent_jar"
+fi
+
+
 # Navigate to project root
 cd $project_root
 
