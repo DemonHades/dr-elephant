@@ -31,7 +31,7 @@ object Dependencies {
   lazy val HADOOP_VERSION = "hadoopversion"
   lazy val SPARK_VERSION = "sparkversion"
 
-  var hadoopVersion = "2.4.1"
+  var hadoopVersion = "2.7.1"
   if (System.getProperties.getProperty(HADOOP_VERSION) != null) {
     hadoopVersion = System.getProperties.getProperty(HADOOP_VERSION)
   }
@@ -65,8 +65,7 @@ object Dependencies {
     "mysql" % "mysql-connector-java" % mysqlConnectorVersion,
     "org.apache.hadoop" % "hadoop-auth" % hadoopVersion % "compileonly",
     "org.apache.hadoop" % "hadoop-mapreduce-client-core" % hadoopVersion % "compileonly",
-    "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "compileonly",
-    "org.apache.hadoop" % "hadoop-common" % hadoopVersion % Test,
+    "org.apache.hadoop" % "hadoop-common" % hadoopVersion,
     "org.apache.hadoop" % "hadoop-hdfs" % hadoopVersion % "compileonly",
     "org.apache.hadoop" % "hadoop-hdfs" % hadoopVersion % Test,
     "org.codehaus.jackson" % "jackson-mapper-asl" % jacksonMapperAslVersion,
