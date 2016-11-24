@@ -19,14 +19,17 @@ package com.linkedin.drelephant.spark.heuristics;
 import com.linkedin.drelephant.analysis.Heuristic;
 import com.linkedin.drelephant.analysis.HeuristicResult;
 import com.linkedin.drelephant.analysis.Severity;
+import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.spark.data.SparkApplicationData;
 import com.linkedin.drelephant.spark.data.SparkEnvironmentData;
-import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.util.MemoryFormatUtils;
 import com.linkedin.drelephant.util.Utils;
-import java.util.Arrays;
-import java.util.Map;
 import org.apache.log4j.Logger;
+import org.apache.commons.lang.StringUtils;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -36,18 +39,53 @@ import org.apache.log4j.Logger;
 public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplicationData> {
   private static final Logger logger = Logger.getLogger(BestPropertiesConventionHeuristic.class);
 
+  public static final String SPARK_APP_OWNER = "spark.job.owner";
+  public static final String SPARK_MASTER = "spark.master";
   public static final String SPARK_SERIALIZER = "spark.serializer";
   public static final String SPARK_DRIVER_MEMORY = "spark.driver.memory";
   public static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
   public static final String SPARK_EXECUTOR_CORES = "spark.executor.cores";
+  public static final String SPARK_EXECUTOR_MEMORY = "spark.executor.memory";
+  public static final String SPARK_EXECUTOR_INSTANCES = "spark.executor.instances";
+  public static final String SPARK_DRIVER_EXTRAJAVAOPTIONS = "spark.driver.extraJavaOptions";
+  public static final String SPARK_EXECUTOR_EXTRAJAVAOPTIONS = "spark.executor.extraJavaOptions";
+  public static final String SPARK_YARN_AM_EXTRAJAVAOPTIONS = "spark.yarn.am.extraJavaOptions";
+  public static final String SPARK_YARN_DRIVER_MEMORYOVERHEAD = "spark.yarn.driver.memoryOverhead";
+  public static final String SPARK_YARN_EXECUTOR_MEMORYOVERHEAD = "spark.yarn.executor.memoryOverhead";
+  public static final String SPARK_DYNAMICALLOCATION_ENABLED = "spark.dynamicAllocation.enabled";
+  public static final String SPARK_DYNAMICALLOCATION_MAXEXECUTORS = "spark.dynamicAllocation.maxExecutors";
+  public static final String NOT_PRESENT = "Not presented";
+
+
+  private static final Map<String, String> SPARK_PROPERTY = new HashMap<String, String>() {
+    {
+      put(SPARK_APP_OWNER, NOT_PRESENT);
+      put(SPARK_MASTER, "yarn-cluster");
+      put(SPARK_SERIALIZER, null);
+      put(SPARK_DRIVER_MEMORY, "1g");
+      put(SPARK_EXECUTOR_MEMORY, "1g");
+      put(SPARK_EXECUTOR_CORES, "1");
+      put(SPARK_SHUFFLE_MANAGER, null);
+      put(SPARK_EXECUTOR_INSTANCES, "2");
+      put(SPARK_DRIVER_EXTRAJAVAOPTIONS, "");
+      put(SPARK_EXECUTOR_EXTRAJAVAOPTIONS, "");
+      put(SPARK_YARN_AM_EXTRAJAVAOPTIONS, "");
+      put(SPARK_YARN_DRIVER_MEMORYOVERHEAD, String.format("10%% * %s", SPARK_DRIVER_MEMORY));
+      put(SPARK_YARN_EXECUTOR_MEMORYOVERHEAD, String.format("10%% * %s", SPARK_EXECUTOR_MEMORY));
+      put(SPARK_DYNAMICALLOCATION_ENABLED, "false");
+      put(SPARK_DYNAMICALLOCATION_MAXEXECUTORS, NOT_PRESENT);
+    }
+  };
 
   // Severity parameters.
   private static final String NUM_CORE_SEVERITY = "num_core_severity";
   private static final String DRIVER_MEM_SEVERITY = "driver_memory_severity_in_gb";
 
   // Default value of parameters
-  private double[] numCoreLimit= {2d};                   // Spark Executor Cores
-  private double[] driverMemLimits = {4d, 4d, 8d, 8d};   // Spark Driver Memory
+//  private double[] numCoreLimit= {2d};                   // Spark Executor Cores
+//  private double[] driverMemLimits = {4d, 4d, 8d, 8d};   // Spark Driver Memory
+  private double[] numCoreLimit= {4d, 4d, 6d, 6d};                   // Spark Executor Cores
+  private double[] driverMemLimits = {4d, 8d, 12d, 12d};   // Spark Driver Memory
 
   private HeuristicConfigurationData _heuristicConfData;
 
@@ -86,36 +124,39 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
   @Override
   public HeuristicResult apply(SparkApplicationData data) {
     SparkEnvironmentData env = data.getEnvironmentData();
-    String sparkSerializer = env.getSparkProperty(SPARK_SERIALIZER);
-    String sparkDriverMemory = env.getSparkProperty(SPARK_DRIVER_MEMORY);
-    String sparkShuffleManager = env.getSparkProperty(SPARK_SHUFFLE_MANAGER);
-    String sparkExecutorCores = env.getSparkProperty(SPARK_EXECUTOR_CORES);
-    int coreNum = sparkExecutorCores == null ? 1 : Integer.parseInt(sparkExecutorCores);
+    Map<String, String> sparkProperty = new HashMap<String, String>();
+    for (String key : SPARK_PROPERTY.keySet()) {
+      sparkProperty.put(key, env.getSparkProperty(key, SPARK_PROPERTY.get(key)));
+    }
+
+    int coreNum = sparkProperty.get(SPARK_EXECUTOR_CORES) == null ?
+            1 : Integer.parseInt(sparkProperty.get(SPARK_EXECUTOR_CORES));
 
     Severity kryoSeverity =
-        binarySeverity("org.apache.spark.serializer.KryoSerializer", sparkSerializer, true, Severity.MODERATE);
-    Severity driverMemSeverity = getDriverMemorySeverity(MemoryFormatUtils.stringToBytes(sparkDriverMemory));
-    Severity sortSeverity = binarySeverity("sort", sparkShuffleManager, true, Severity.MODERATE);
+        binarySeverity("org.apache.spark.serializer.KryoSerializer",
+                sparkProperty.get(SPARK_SERIALIZER), true, Severity.MODERATE);
+    Severity driverMemSeverity =
+            getDriverMemorySeverity(MemoryFormatUtils.stringToBytes(sparkProperty.get(SPARK_DRIVER_MEMORY)));
+    Severity sortSeverity = binarySeverity("sort", sparkProperty.get(SPARK_SHUFFLE_MANAGER), true, Severity.MODERATE);
     Severity executorCoreSeverity = getCoreNumSeverity(coreNum);
 
     HeuristicResult result = new HeuristicResult(_heuristicConfData.getClassName(),
         _heuristicConfData.getHeuristicName(), Severity.max(kryoSeverity, driverMemSeverity, sortSeverity,
         executorCoreSeverity), 0);
 
-    result.addResultDetail(SPARK_SERIALIZER, propertyToString(sparkSerializer));
-    result.addResultDetail(SPARK_DRIVER_MEMORY, propertyToString(sparkDriverMemory));
-    result.addResultDetail(SPARK_SHUFFLE_MANAGER, propertyToString(sparkShuffleManager));
-    result.addResultDetail(SPARK_EXECUTOR_CORES, propertyToString(sparkExecutorCores));
+    for (Map.Entry<String, String> entry : sparkProperty.entrySet()) {
+      String detail = entry.getValue();
+      if (entry.getKey().endsWith("extraJavaOptions"))
+        detail = StringUtils.join(entry.getValue().split("\\s+"), "\n");
+      result.addResultDetail(entry.getKey(), propertyToString(detail));
+    }
 
     return result;
   }
 
   private Severity getCoreNumSeverity(int cores) {
-    if (cores > numCoreLimit[0]) {
-      return Severity.CRITICAL;
-    } else {
-      return Severity.NONE;
-    }
+    return Severity.getSeverityAscending(
+            cores, numCoreLimit[0], numCoreLimit[1], numCoreLimit[2], numCoreLimit[3]);
   }
 
   private Severity getDriverMemorySeverity(long mem) {

@@ -18,18 +18,16 @@ package com.linkedin.drelephant.spark.heuristics;
 
 import com.linkedin.drelephant.analysis.ApplicationType;
 import com.linkedin.drelephant.analysis.Severity;
+import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.spark.MockSparkApplicationData;
 import com.linkedin.drelephant.spark.data.SparkApplicationData;
-import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
+import junit.framework.TestCase;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import junit.framework.TestCase;
 
-import static com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic.SPARK_DRIVER_MEMORY;
-import static com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic.SPARK_EXECUTOR_CORES;
-import static com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic.SPARK_SERIALIZER;
-import static com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic.SPARK_SHUFFLE_MANAGER;
+import static com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic.*;
 
 
 /**
@@ -41,12 +39,12 @@ public class BestPropertiesConventionHeuristicTest extends TestCase {
     assertEquals(analyzeJob(getDefaultGoodProperteis()), Severity.NONE);
 
     assertEquals(Severity.MODERATE, analyzeJob(getPropertiesAndOverideOne(SPARK_DRIVER_MEMORY, "7G")));
-    assertEquals(Severity.CRITICAL, analyzeJob(getPropertiesAndOverideOne(SPARK_DRIVER_MEMORY, "8G")));
-    assertEquals(Severity.CRITICAL, analyzeJob(getPropertiesAndOverideOne(SPARK_DRIVER_MEMORY, "9G")));
+    assertEquals(Severity.SEVERE, analyzeJob(getPropertiesAndOverideOne(SPARK_DRIVER_MEMORY, "10G")));
+    assertEquals(Severity.CRITICAL, analyzeJob(getPropertiesAndOverideOne(SPARK_DRIVER_MEMORY, "12G")));
 
     assertEquals(Severity.NONE, analyzeJob(getPropertiesAndOverideOne(SPARK_EXECUTOR_CORES, "1")));
-    assertEquals(Severity.NONE, analyzeJob(getPropertiesAndOverideOne(SPARK_EXECUTOR_CORES, "2")));
-    assertEquals(Severity.CRITICAL, analyzeJob(getPropertiesAndOverideOne(SPARK_EXECUTOR_CORES, "4")));
+    assertEquals(Severity.NONE, analyzeJob(getPropertiesAndOverideOne(SPARK_EXECUTOR_CORES, "4")));
+    assertEquals(Severity.CRITICAL, analyzeJob(getPropertiesAndOverideOne(SPARK_EXECUTOR_CORES, "8")));
 
 
     assertEquals(Severity.MODERATE, analyzeJob(getPropertiesAndOverideOne(SPARK_SERIALIZER, "foo")));
