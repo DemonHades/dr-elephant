@@ -18,21 +18,9 @@ package com.linkedin.drelephant.util;
 
 import com.linkedin.drelephant.analysis.Severity;
 import com.linkedin.drelephant.math.Statistics;
-import java.io.IOException;
-import java.io.InputStream;
-import java.text.DecimalFormat;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import org.apache.hadoop.conf.Configuration;
 import models.AppResult;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -40,10 +28,18 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import play.Play;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Comparator;
+
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -115,16 +111,17 @@ public final class Utils {
         continue;
       }
       if (!token.startsWith("-D")) {
-        throw new IllegalArgumentException(
-            "Cannot parse java option string [" + str + "]. Some options does not begin with -D prefix.");
+        logger.warn("[Meituan] Parsing Java option string [" + str + "] happens exception.");
+//        throw new IllegalArgumentException(
+//            "Cannot parse java option string [" + str + "]. Some options does not begin with -D prefix.");
+      } else {
+        String[] parts = token.substring(2).split("=", 2);
+        if (parts.length != 2) {
+          throw new IllegalArgumentException(
+              "Cannot parse java option string [" + str + "]. The part [" + token + "] does not contain a =.");
+        }
+        options.put(parts[0], parts[1]);
       }
-      String[] parts = token.substring(2).split("=", 2);
-      if (parts.length != 2) {
-        throw new IllegalArgumentException(
-            "Cannot parse java option string [" + str + "]. The part [" + token + "] does not contain a =.");
-      }
-
-      options.put(parts[0], parts[1]);
     }
     return options;
   }
