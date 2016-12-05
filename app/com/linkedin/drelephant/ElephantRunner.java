@@ -17,16 +17,16 @@
 package com.linkedin.drelephant;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import com.linkedin.drelephant.analysis.AnalyticJob;
-import com.linkedin.drelephant.analysis.AnalyticJobGenerator;
-import com.linkedin.drelephant.analysis.HDFSContext;
-import com.linkedin.drelephant.analysis.HadoopSystemContext;
-import com.linkedin.drelephant.analysis.AnalyticJobGeneratorHadoop2;
-
+import com.linkedin.drelephant.analysis.*;
 import com.linkedin.drelephant.security.HadoopSecurity;
-
+import com.linkedin.drelephant.util.Utils;
+import com.linkedin.drelephant.util.XMHandler;
 import controllers.MetricsController;
+import models.AppResult;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.log4j.Logger;
+
 import java.io.IOException;
 import java.security.PrivilegedAction;
 import java.util.List;
@@ -35,13 +35,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.linkedin.drelephant.util.Utils;
-import models.AppResult;
-
-import org.apache.commons.lang.exception.ExceptionUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.log4j.Logger;
 
 
 /**
@@ -57,12 +50,14 @@ public class ElephantRunner implements Runnable {
   private static final String FETCH_INTERVAL_KEY = "drelephant.analysis.fetch.interval";
   private static final String RETRY_INTERVAL_KEY = "drelephant.analysis.retry.interval";
   private static final String EXECUTOR_NUM_KEY = "drelephant.analysis.thread.count";
+  private static final String FEEDFACK_REPORT_ENABLE = "drelephant.analysis.report.feedback.enable";
 
   private AtomicBoolean _running = new AtomicBoolean(true);
   private long lastRun;
   private long _fetchInterval;
   private long _retryInterval;
   private int _executorNum;
+  private boolean _feedbackReportEnable;
   private HadoopSecurity _hadoopSecurity;
   private ThreadPoolExecutor _threadPoolExecutor;
   private AnalyticJobGenerator _analyticJobGenerator;
@@ -73,6 +68,9 @@ public class ElephantRunner implements Runnable {
     _executorNum = Utils.getNonNegativeInt(configuration, EXECUTOR_NUM_KEY, EXECUTOR_NUM);
     _fetchInterval = Utils.getNonNegativeLong(configuration, FETCH_INTERVAL_KEY, FETCH_INTERVAL);
     _retryInterval = Utils.getNonNegativeLong(configuration, RETRY_INTERVAL_KEY, RETRY_INTERVAL);
+    _feedbackReportEnable = configuration.getBoolean(FEEDFACK_REPORT_ENABLE, false);
+    logger.info("[Meituan] FEEDFACK_REPORT_ENABLE = " + configuration.getBoolean(FEEDFACK_REPORT_ENABLE, false));
+    logger.info("[Meituan] drelephant.analysis.report.feedback.enable = " + _feedbackReportEnable);
   }
 
   private void loadAnalyticJobGenerator() {
@@ -176,6 +174,10 @@ public class ElephantRunner implements Runnable {
         logger.info(String.format("Analyzing %s", analysisName));
         AppResult result = _analyticJob.getAnalysis();
         result.save();
+        logger.info("[Meituan] FEEDFACK_REPORT_ENABLE === " + _feedbackReportEnable);
+        if (_feedbackReportEnable) {
+          notifyOwner(_analyticJob);
+        }
         long processingTime = System.currentTimeMillis() - analysisStartTimeMillis;
         logger.info(String.format("Analysis of %s took %sms", analysisName, processingTime));
         MetricsController.setJobProcessingTime(processingTime);
@@ -202,6 +204,20 @@ public class ElephantRunner implements Runnable {
           }
         }
       }
+    }
+  }
+
+  private void notifyOwner(AnalyticJob analyticJob) {
+    logger.info("[Meituan] " + analyticJob.getAppId() + "came from mtmsp!");
+    String receiver = analyticJob.getOwner();
+    if (analyticJob.getSource() == "mtmsp" &&  receiver != "" && receiver != "sankuai") {
+      String msg = String.format("检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
+              analyticJob.getName(), "http://10.16.32.101:8419/search?id=" + analyticJob.getAppId());
+      XMHandler.sendMessage(msg, "biyan");
+    } else {
+      String msg = String.format("检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
+              analyticJob.getName(), "http://10.16.32.101:8419/search?id=" + analyticJob.getAppId());
+      XMHandler.sendMessage(msg, "biyan");
     }
   }
 

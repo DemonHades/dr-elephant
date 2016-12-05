@@ -17,14 +17,18 @@
 package com.linkedin.drelephant.analysis;
 
 import com.linkedin.drelephant.ElephantContext;
+import com.linkedin.drelephant.spark.data.SparkApplicationData;
+import com.linkedin.drelephant.spark.data.SparkEnvironmentData;
+import com.linkedin.drelephant.spark.heuristics.BestPropertiesConventionHeuristic;
 import com.linkedin.drelephant.util.InfoExtractor;
 import com.linkedin.drelephant.util.Utils;
-import java.util.ArrayList;
-import java.util.List;
 import models.AppHeuristicResult;
 import models.AppHeuristicResultDetails;
 import models.AppResult;
 import org.apache.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -43,6 +47,8 @@ public class AnalyticJob {
   private String _name;
   private String _queueName;
   private String _user;
+  private String _owner;
+  private String _source;
   private String _trackingUrl;
   private long _startTime;
   private long _finishTime;
@@ -113,6 +119,29 @@ public class AnalyticJob {
   }
 
   /**
+   * Sets the owner who is responsible for the job
+   *
+   * @param owner The name of the owner
+   * @return The analytic job
+   */
+  public AnalyticJob setOwner(String owner) {
+    _owner = owner;
+    return this;
+  }
+
+  /**
+   * Sets the source where the job came from
+   *
+   * @param source The source 0f the job
+   * @return The analytic job
+   */
+  public AnalyticJob setSource(String source) {
+    _source = source;
+    return this;
+  }
+
+
+  /**
    * Sets the start time of the job
    * Start time is the time at which the job was submitted by the resource manager
    *
@@ -168,6 +197,24 @@ public class AnalyticJob {
    */
   public String getUser() {
     return _user;
+  }
+
+  /**
+   * Returns the owner who is responsible for the job
+   *
+   * @return The owner who is responsible for the analytic job
+   */
+  public String getOwner() {
+    return _owner;
+  }
+
+  /**
+   * Returns the source where the job came from
+   *
+   * @return The source of the job
+   */
+  public String getSource() {
+    return _source;
   }
 
   /**
@@ -229,6 +276,7 @@ public class AnalyticJob {
   public AppResult getAnalysis() throws Exception {
     ElephantFetcher fetcher = ElephantContext.instance().getFetcherForApplicationType(getAppType());
     HadoopApplicationData data = fetcher.fetchData(this);
+    addExtraJobInfo(data);
 
     // Run all heuristics over the fetched data
     List<HeuristicResult> analysisResults = new ArrayList<HeuristicResult>();
@@ -314,5 +362,23 @@ public class AnalyticJob {
    */
   public boolean retry() {
     return (_retries++) < _RETRY_LIMIT;
+  }
+
+  /**
+   * add extra job info. i.e. the owner and source of the job
+   *
+   * @param data
+   */
+  public void addExtraJobInfo(HadoopApplicationData data) {
+    try{
+      SparkEnvironmentData sparkEnvironmentData = ((SparkApplicationData)data).getEnvironmentData();
+      String owner = sparkEnvironmentData.getSparkProperty(BestPropertiesConventionHeuristic.SPARK_APP_OWNER, "");
+      String source = sparkEnvironmentData.getSparkProperty(BestPropertiesConventionHeuristic.SPARK_JOB_TYPE, "");
+      setOwner(owner);
+      setSource(source);
+    }
+    catch (ClassCastException e){
+      logger.warn(getAppId() + " is not a spark job.");
+    }
   }
 }
