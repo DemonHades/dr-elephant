@@ -19,19 +19,15 @@ package com.linkedin.drelephant.spark.heuristics;
 import com.linkedin.drelephant.analysis.Heuristic;
 import com.linkedin.drelephant.analysis.HeuristicResult;
 import com.linkedin.drelephant.analysis.Severity;
+import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.math.Statistics;
 import com.linkedin.drelephant.spark.data.SparkApplicationData;
 import com.linkedin.drelephant.spark.data.SparkJobProgressData;
-import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.util.Utils;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+
+import java.util.*;
 
 
 /**
@@ -131,6 +127,39 @@ public class StageRuntimeHeuristic implements Heuristic<SparkApplicationData> {
     HeuristicResult result = new HeuristicResult(_heuristicConfData.getClassName(),
         _heuristicConfData.getHeuristicName(), endSeverity, 0);
 
+    Map<SparkJobProgressData.StageAttemptId, SparkJobProgressData.StageInfo> stageInfos = jobProgressData.getStageInfo();
+    TreeMap<String, String> stageToDataSkew = new TreeMap<String, String>(
+            new Comparator<String>(){
+              @Override
+              public int compare(String one, String another) {
+                Double sumOne = Double.parseDouble(one.split("\\$\\$", 2)[1]);
+                Double sumAnother = Double.parseDouble(another.split("\\$\\$", 2)[1]);
+                return (int) (sumAnother * 100 - sumOne * 100);
+              }
+            }
+    );
+    ArrayList<String> stageDataSkews = new ArrayList<String>();
+
+
+    for (Map.Entry<SparkJobProgressData.StageAttemptId, SparkJobProgressData.StageInfo> entry : stageInfos.entrySet()) {
+      List<Double> ds = entry.getValue().getTaskDataSkews();
+      Double sum = 0.0d;
+      for (Double elem : ds)
+        sum += elem;
+      stageToDataSkew.put(String.format("%s$$%s", entry.getKey().name(), sum),
+              getCollectionAsString(entry.getValue().getTaskDataSkews(), " "));
+    }
+    int numLoop = Math.min(5, stageToDataSkew.size());
+    for (int i = 0; i < numLoop; i++) {
+      Map.Entry<String, String> first = stageToDataSkew.firstEntry();
+      stageDataSkews.add(first.getKey().split("\\$\\$", 2)[0] + "\t" + first.getValue());
+      stageToDataSkew.remove(first.getKey());
+    }
+
+    if (!stageDataSkews.isEmpty())
+      stageDataSkews.add(0, "Stage\t" + StringUtils.join(jobProgressData.getDataSkewSchema(), " "));
+
+    result.addResultDetail("Spark data skewness per stage", getStagesAsString(stageDataSkews));
     result.addResultDetail("Spark stage completed", String.valueOf(completedStages.size()));
     result.addResultDetail("Spark stage failed", String.valueOf(failedStages.size()));
     result.addResultDetail("Spark average stage failure rate", String.format("%.3f", avgStageFailureRate));
@@ -156,5 +185,9 @@ public class StageRuntimeHeuristic implements Heuristic<SparkApplicationData> {
 
   private static String getStagesAsString(Collection<String> names) {
     return StringUtils.join(names, "\n");
+  }
+
+  private static String getCollectionAsString(Collection collection, String separator) {
+    return StringUtils.join(collection, separator);
   }
 }

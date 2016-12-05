@@ -32,3 +32,11 @@ One Spark application can be broken into multiple jobs and each jobs can be brok
   However, if the slow job runtime seems to happen for all executors, this might suggest the executor number allocated
   is not large enough.
 </p>
+
+<h5><strong>3. DataSkew per stage</strong></h5>
+<p>
+  Each Stage has four I/O indexes: <strong>Input Bytes(IB)</strong>, <strong>Output Bytes(OB)</strong>,
+  <strong>Shuffle Read Bytes(SRB)</strong>, <strong>Shuffle Write Bytes(SWB)</strong>.
+  Only the 5 stages whose sum of skewness of four indexes is the biggest is displayed here.
+  The first field of each line, i.e. 1.0, means the stage's id is 1 and the attempt id of this stage is 0.
+</p>

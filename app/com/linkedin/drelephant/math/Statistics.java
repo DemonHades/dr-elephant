@@ -16,13 +16,11 @@
 
 package com.linkedin.drelephant.math;
 
+import com.google.common.primitives.Longs;
+
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
-import org.apache.commons.io.FileUtils;
+import java.util.*;
+import java.text.DecimalFormat;
 
 
 /**
@@ -109,6 +107,26 @@ public final class Statistics {
     return values.get(position - 1);
   }
 
+
+  public static double computeDataSkew(List<Long> arr) {
+    if (arr.size() < 2)
+      return 0d;
+
+    long[][] groups = findTwoGroups(Longs.toArray(arr));
+
+    long avg1 = average(groups[0]);
+    long avg2 = average(groups[1]);
+
+    long min = Math.min(avg1, avg2);
+    long diff = Math.abs(avg2 - avg1);
+
+    if (min <= 0) {
+      min = 1;
+    }
+
+    DecimalFormat df = new DecimalFormat("#.##");
+    return Double.parseDouble(df.format(diff * 1.0d / min));
+  }
 
   public static long[][] findTwoGroups(long[] values) {
     return findTwoGroupsRecursive(values, average(values), 2);

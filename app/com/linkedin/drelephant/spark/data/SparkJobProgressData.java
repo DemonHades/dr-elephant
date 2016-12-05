@@ -16,15 +16,11 @@
 
 package com.linkedin.drelephant.spark.data;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.linkedin.drelephant.math.Statistics;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+
+import java.util.*;
 
 
 /**
@@ -39,6 +35,9 @@ public class SparkJobProgressData {
   private final Map<StageAttemptId, StageInfo> _stageIdToInfo = new HashMap<StageAttemptId, StageInfo>();
   private final Set<StageAttemptId> _completedStages = new HashSet<StageAttemptId>();
   private final Set<StageAttemptId> _failedStages = new HashSet<StageAttemptId>();
+
+  // InputBytes => IB, OutputBytes => OB, ShuffleReadBytes => SRB, ShuffleWriteBytes => SWB
+  private final List<String> _dataskewSchema = new ArrayList<String>(Arrays.asList("IB", "OB", "SRB", "SWB"));
 
   public void addJobInfo(int jobId, JobInfo info) {
     _jobIdToInfo.put(jobId, info);
@@ -94,6 +93,10 @@ public class SparkJobProgressData {
     return _jobIdToInfo.get(jobId);
   }
 
+  public Map<StageAttemptId, StageInfo> getStageInfo() {
+    return _stageIdToInfo;
+  }
+
   public StageInfo getStageInfo(int stageId, int attemptId) {
     return _stageIdToInfo.get(new StageAttemptId(stageId, attemptId));
   }
@@ -104,6 +107,10 @@ public class SparkJobProgressData {
 
   public Set<StageAttemptId> getFailedStages() {
     return _failedStages;
+  }
+
+  public List<String> getDataSkewSchema() {
+    return _dataskewSchema;
   }
 
   /**
@@ -174,6 +181,10 @@ public class SparkJobProgressData {
       return false;
     }
 
+    public String name() {
+      return stageId + "." + attemptId;
+    }
+
     public String toString() {
       return "id: " + stageId + " # attemptId: " + attemptId;
     }
@@ -222,6 +233,7 @@ public class SparkJobProgressData {
     public int numActiveTasks;
     public int numCompleteTasks;
     public final Set<Integer> completedIndices = new HashSet<Integer>();
+    public Map<Long, TaskData> taskDatas = new HashMap<Long, TaskData>();
     public int numFailedTasks;
 
     // Total accumulated executor runtime
@@ -245,6 +257,29 @@ public class SparkJobProgressData {
       return SparkJobProgressData.getFailureRate(numCompleteTasks, numFailedTasks);
     }
 
+    public List<Double> getTaskDataSkews() {
+      List<Double> skewnesses = new ArrayList<Double>();
+      List<Long> inputBytes = new ArrayList<Long>();
+      List<Long> outputBytes = new ArrayList<Long>();
+      List<Long> shuffleReadBytes = new ArrayList<Long>();
+      List<Long> shuffleWriteBytes = new ArrayList<Long>();
+
+      for (TaskData taskData : taskDatas.values()) {
+        if (taskData.taskInfo.status == STATUS.SUCCESS && taskData.taskMetrics != null) {
+          inputBytes.add(taskData.taskMetrics.inputMetrics != null ? taskData.taskMetrics.inputMetrics.bytesRead : 0l);
+          outputBytes.add(taskData.taskMetrics.outputMetrics != null ? taskData.taskMetrics.outputMetrics.bytesWritten : 0l);
+          shuffleReadBytes.add(taskData.taskMetrics.shuffleReadMetrics != null ? taskData.taskMetrics.shuffleReadMetrics.totalBytesRead() : 0l);
+          shuffleWriteBytes.add(taskData.taskMetrics.shuffleWriteMetrics != null ? taskData.taskMetrics.shuffleWriteMetrics.shuffleBytesWritten : 0l);
+        }
+      }
+
+      skewnesses.add(Statistics.computeDataSkew(inputBytes));
+      skewnesses.add(Statistics.computeDataSkew(outputBytes));
+      skewnesses.add(Statistics.computeDataSkew(shuffleReadBytes));
+      skewnesses.add(Statistics.computeDataSkew(shuffleWriteBytes));
+      return skewnesses;
+    }
+
     // TODO: accumulables info seem to be unnecessary, might might be useful later on
     // sample code from Spark source: var accumulables = new HashMap[Long, AccumulableInfo]
 
@@ -259,7 +294,228 @@ public class SparkJobProgressData {
     }
   }
 
+  public static class TaskData {
+    public TaskInfo taskInfo;
+    public TaskMetrics taskMetrics = null;
+    public String errorMessage = null;
+  }
+
+  public static class TaskInfo {
+    public long taskId;
+    public int index;
+    public int attemptNumber;
+    public long launchTime;
+    public String executorId;
+    public String host;
+    public boolean speculative;
+    public String taskLocality;
+    public long gettingResultTime = 0l;
+    public STATUS status = STATUS.UNKNOWN;
+    public long finishTime = 0l;
+
+    public TaskInfo(long taskId, int index, int attemptNumber, long launchTime, String executorId,
+                    String host, boolean speculative, String taskLocality,
+                    long gettingResultTime, long finishTime) {
+      this.taskId = taskId;
+      this.index = index;
+      this.attemptNumber = attemptNumber;
+      this.launchTime = launchTime;
+      this.executorId = executorId;
+      this.host = host;
+      this.speculative = speculative;
+      this.taskLocality = taskLocality;
+      this.gettingResultTime = gettingResultTime;
+      this.finishTime = finishTime;
+    }
+
+    public TaskInfo(org.apache.spark.scheduler.TaskInfo sparkTaskInfo) {
+      this(
+              sparkTaskInfo.taskId(),
+              sparkTaskInfo.index(),
+              sparkTaskInfo.attemptNumber(),
+              sparkTaskInfo.launchTime(),
+              sparkTaskInfo.executorId(),
+              sparkTaskInfo.host(),
+              sparkTaskInfo.speculative(),
+              sparkTaskInfo.taskLocality().toString(),
+              sparkTaskInfo.gettingResultTime(),
+              sparkTaskInfo.finishTime()
+       );
+      if (sparkTaskInfo.successful()) {
+        setTaskStatus(STATUS.SUCCESS);
+      } else if (sparkTaskInfo.failed()) {
+        setTaskStatus(STATUS.FAILED);
+      } else if (sparkTaskInfo.running()) {
+        setTaskStatus(STATUS.RUNNING);
+      } else {
+        setTaskStatus(STATUS.UNKNOWN);
+      }
+    }
+
+    public void setTaskStatus(STATUS status) {
+      this.status = status;
+    }
+  }
+
+  public static class TaskMetrics {
+    public String hostname;
+    public long executorDeserializeTime;
+    public long executorRunTime;
+    public long resultSize;
+    public long jvmGCTime;
+    public long resultSerialization;
+    public long memoryBytesSpilled;
+    public long diskBytesSpilled;
+    public InputMetrics inputMetrics = null;
+    public OutputMetrics outputMetrics = null;
+    public ShuffleReadMetrics shuffleReadMetrics = null;
+    public ShuffleWriteMetrics shuffleWriteMetrics = null;
+
+    public TaskMetrics(String hostname, long executorDeserializeTime, long executorRuntime,
+                       long resultSize, long jvmGCTime, long resultSerialization,
+                       long memoryBytesSpilled, long diskBytesSpilled) {
+      this.hostname = hostname;
+      this.executorDeserializeTime = executorDeserializeTime;
+      this.executorRunTime = executorRuntime;
+      this.resultSize = resultSize;
+      this.jvmGCTime = jvmGCTime;
+      this.resultSerialization = resultSerialization;
+      this.memoryBytesSpilled = memoryBytesSpilled;
+      this.diskBytesSpilled = diskBytesSpilled;
+    }
+
+    public TaskMetrics(org.apache.spark.executor.TaskMetrics taskMetrics) {
+      this(
+              taskMetrics.hostname(),
+              taskMetrics.executorDeserializeTime(),
+              taskMetrics.executorRunTime(),
+              taskMetrics.resultSize(),
+              taskMetrics.jvmGCTime(),
+              taskMetrics.resultSerializationTime(),
+              taskMetrics.memoryBytesSpilled(),
+              taskMetrics.diskBytesSpilled()
+      );
+
+      if (taskMetrics.inputMetrics().nonEmpty()) {
+        this.inputMetrics = new InputMetrics(taskMetrics.inputMetrics().get());
+      }
+
+      if (taskMetrics.outputMetrics().nonEmpty()) {
+        this.outputMetrics = new OutputMetrics(taskMetrics.outputMetrics().get());
+      }
+
+      if (taskMetrics.shuffleReadMetrics().nonEmpty()) {
+        this.shuffleReadMetrics = new ShuffleReadMetrics(taskMetrics.shuffleReadMetrics().get());
+      }
+
+      if (taskMetrics.shuffleWriteMetrics().nonEmpty()) {
+        this.shuffleWriteMetrics = new ShuffleWriteMetrics(taskMetrics.shuffleWriteMetrics().get());
+      }
+    }
+  }
+
+  public static class InputMetrics {
+    public String readMethod = "";
+    public long bytesRead;
+    public long recordsRead;
+
+    public InputMetrics(String readMethod, long bytesRead, long recordsRead) {
+      this.readMethod = readMethod;
+      this.bytesRead = bytesRead;
+      this.recordsRead = recordsRead;
+    }
+
+    public InputMetrics(org.apache.spark.executor.InputMetrics inputMetrics) {
+      this(
+              inputMetrics.readMethod().toString(),
+              inputMetrics.bytesRead(),
+              inputMetrics.recordsRead()
+      );
+    }
+  }
+
+  public static class OutputMetrics {
+    public String writeMethod = "";
+    public long bytesWritten;
+    public long recordsWritten;
+
+    public OutputMetrics(String writeMethod, long bytesWritten, long recordsWritten) {
+      this.writeMethod = writeMethod;
+      this.bytesWritten = bytesWritten;
+      this.recordsWritten = recordsWritten;
+    }
+
+    public OutputMetrics(org.apache.spark.executor.OutputMetrics outputMetrics) {
+      this(
+              outputMetrics.writeMethod().toString(),
+              outputMetrics.bytesWritten(),
+              outputMetrics.recordsWritten()
+      );
+    }
+  }
+
+  public static class ShuffleReadMetrics {
+    public int remoteBlocksFetched;
+    public int localBlocksFetched;
+    public long fetchWaitTime;
+    public long remoteBytesRead;
+    public long localBytesRead;
+    public long totalRecordsRead;
+
+    public ShuffleReadMetrics(int remoteBlocksFetched, int localBlocksFetched, long fetchWaitTime,
+                              long remoteBytesRead, long localBytesRead, long totalRecordsRead) {
+      this.remoteBlocksFetched = remoteBlocksFetched;
+      this.localBlocksFetched = localBlocksFetched;
+      this.fetchWaitTime = fetchWaitTime;
+      this.remoteBytesRead = remoteBytesRead;
+      this.localBytesRead = localBytesRead;
+      this.totalRecordsRead = totalRecordsRead;
+    }
+
+    public ShuffleReadMetrics(org.apache.spark.executor.ShuffleReadMetrics shuffleReadMetrics) {
+      this(
+              shuffleReadMetrics.remoteBlocksFetched(),
+              shuffleReadMetrics.localBlocksFetched(),
+              shuffleReadMetrics.fetchWaitTime(),
+              shuffleReadMetrics.remoteBytesRead(),
+              shuffleReadMetrics.localBytesRead(),
+              shuffleReadMetrics.totalBytesRead()
+      );
+    }
+
+    public Long totalBytesRead() {
+      return remoteBytesRead + localBytesRead;
+    }
+  }
+
+  public static class ShuffleWriteMetrics {
+    public long shuffleBytesWritten;
+    public long shuffleWriteTime;
+    public long shuffleRecordsWritten;
+
+    public ShuffleWriteMetrics(long shuffleBytesWritten, long shuffleWriteTime, long shuffleRecordsWritten) {
+      this.shuffleBytesWritten = shuffleBytesWritten;
+      this.shuffleWriteTime = shuffleWriteTime;
+      this.shuffleRecordsWritten = shuffleRecordsWritten;
+    }
+
+    public ShuffleWriteMetrics(org.apache.spark.executor.ShuffleWriteMetrics shuffleWriteMetrics) {
+      this(
+              shuffleWriteMetrics.shuffleBytesWritten(),
+              shuffleWriteMetrics.shuffleWriteTime(),
+              shuffleWriteMetrics.shuffleRecordsWritten()
+      );
+    }
+  }
+
+  public enum STATUS {
+    SUCCESS, FAILED, RUNNING, UNKNOWN
+  }
+
   private static String getListString(Collection collection) {
     return "[" + StringUtils.join(collection, ",") + "]";
+  }
+  private static String getCollectionString(Collection collection, String separator) {
+    return StringUtils.join(collection, separator);
   }
 }

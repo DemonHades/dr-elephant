@@ -17,23 +17,20 @@
 package org.apache.spark.deploy.history
 
 
+import java.util.{Properties, ArrayList => JArrayList, HashSet => JHashSet, List => JList, Set => JSet}
+
 import com.linkedin.drelephant.analysis.ApplicationType
+import com.linkedin.drelephant.spark.data.SparkExecutorData.ExecutorInfo
+import com.linkedin.drelephant.spark.data.SparkJobProgressData.{JobInfo, TaskData, TaskInfo, TaskMetrics}
 import com.linkedin.drelephant.spark.data._
-import SparkExecutorData.ExecutorInfo
-import SparkJobProgressData.JobInfo
-import org.apache.spark.scheduler.{StageInfo, ApplicationEventListener}
-import org.apache.spark.storage.{StorageStatusTrackingListener, StorageStatus, RDDInfo, StorageStatusListener}
+import org.apache.spark.scheduler.{ApplicationEventListener, StageInfo}
+import org.apache.spark.storage.{RDDInfo, StorageStatus, StorageStatusListener, StorageStatusTrackingListener}
 import org.apache.spark.ui.env.EnvironmentListener
 import org.apache.spark.ui.exec.ExecutorsListener
 import org.apache.spark.ui.jobs.JobProgressListener
+import org.apache.spark.ui.jobs.UIData.TaskUIData
 import org.apache.spark.ui.storage.StorageListener
 import org.apache.spark.util.collection.OpenHashSet
-
-import java.util.{Set => JSet}
-import java.util.{HashSet => JHashSet}
-import java.util.{List => JList}
-import java.util.{ArrayList => JArrayList}
-import java.util.Properties
 
 import scala.collection.mutable
 
@@ -250,6 +247,14 @@ class SparkDataCollection(applicationEventListener: ApplicationEventListener,
           stageInfo.outputBytes = data.outputBytes
           stageInfo.shuffleReadBytes = data.shuffleReadTotalBytes
           stageInfo.shuffleWriteBytes = data.shuffleWriteBytes
+          data.taskData foreach { case (taskId: Long, info: TaskUIData) =>
+              val taskData = new TaskData()
+              taskData.taskInfo = new TaskInfo(info.taskInfo)
+              if (info.taskMetrics.isDefined)
+                taskData.taskMetrics = new TaskMetrics(info.taskMetrics.get)
+              taskData.errorMessage = info.errorMessage.orNull
+              stageInfo.taskDatas.put(taskId, taskData)
+          }
           addIntSetToJSet(data.completedIndices, stageInfo.completedIndices)
 
           _jobProgressData.addStageInfo(id._1, id._2, stageInfo)
