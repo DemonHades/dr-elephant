@@ -69,8 +69,6 @@ public class ElephantRunner implements Runnable {
     _fetchInterval = Utils.getNonNegativeLong(configuration, FETCH_INTERVAL_KEY, FETCH_INTERVAL);
     _retryInterval = Utils.getNonNegativeLong(configuration, RETRY_INTERVAL_KEY, RETRY_INTERVAL);
     _feedbackReportEnable = configuration.getBoolean(FEEDFACK_REPORT_ENABLE, false);
-    logger.info("[Meituan] FEEDFACK_REPORT_ENABLE = " + configuration.getBoolean(FEEDFACK_REPORT_ENABLE, false));
-    logger.info("[Meituan] drelephant.analysis.report.feedback.enable = " + _feedbackReportEnable);
   }
 
   private void loadAnalyticJobGenerator() {
@@ -174,7 +172,6 @@ public class ElephantRunner implements Runnable {
         logger.info(String.format("Analyzing %s", analysisName));
         AppResult result = _analyticJob.getAnalysis();
         result.save();
-        logger.info("[Meituan] FEEDFACK_REPORT_ENABLE === " + _feedbackReportEnable);
         if (_feedbackReportEnable) {
           notifyOwner(_analyticJob);
         }
@@ -208,15 +205,11 @@ public class ElephantRunner implements Runnable {
   }
 
   private void notifyOwner(AnalyticJob analyticJob) {
-    logger.info("[Meituan] " + analyticJob.getAppId() + "came from mtmsp!");
     String receiver = analyticJob.getOwner();
     if (analyticJob.getSource() == "mtmsp" &&  receiver != "" && receiver != "sankuai") {
-      String msg = String.format("检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
+      String msg = String.format(receiver + ": 检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
               analyticJob.getName(), "http://10.16.32.101:8419/search?id=" + analyticJob.getAppId());
-      XMHandler.sendMessage(msg, "biyan");
-    } else {
-      String msg = String.format("检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
-              analyticJob.getName(), "http://10.16.32.101:8419/search?id=" + analyticJob.getAppId());
+      logger.info("Meituan Notify: " + msg);
       XMHandler.sendMessage(msg, "biyan");
     }
   }

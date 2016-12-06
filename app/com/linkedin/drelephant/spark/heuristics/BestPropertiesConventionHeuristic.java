@@ -40,6 +40,7 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
   private static final Logger logger = Logger.getLogger(BestPropertiesConventionHeuristic.class);
 
   public static final String SPARK_APP_OWNER = "spark.job.owner";
+  public static final String SPARK_JOB_TYPE = "spark.job.type";
   public static final String SPARK_MASTER = "spark.master";
   public static final String SPARK_SERIALIZER = "spark.serializer";
   public static final String SPARK_DRIVER_MEMORY = "spark.driver.memory";
@@ -59,7 +60,8 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
 
   private static final Map<String, String> SPARK_PROPERTY = new HashMap<String, String>() {
     {
-      put(SPARK_APP_OWNER, NOT_PRESENT);
+      put(SPARK_APP_OWNER, "");
+      put(SPARK_JOB_TYPE, "");
       put(SPARK_MASTER, "yarn-cluster");
       put(SPARK_SERIALIZER, null);
       put(SPARK_DRIVER_MEMORY, "1g");
