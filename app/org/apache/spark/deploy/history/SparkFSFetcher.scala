@@ -17,36 +17,30 @@
 package org.apache.spark.deploy.history
 
 
-import java.net.{HttpURLConnection, URL, URI}
+import java.io.{BufferedInputStream, InputStream}
+import java.net.{HttpURLConnection, URL}
 import java.security.PrivilegedAction
-import java.io.{IOException, BufferedInputStream, InputStream}
-import java.{io, util}
-import java.util.ArrayList
-import javax.ws.rs.core.UriBuilder
+
+import com.linkedin.drelephant.analysis.{AnalyticJob, ElephantFetcher}
 import com.linkedin.drelephant.configurations.fetcher.FetcherConfigurationData
 import com.linkedin.drelephant.security.HadoopSecurity
 import com.linkedin.drelephant.spark.data.SparkApplicationData
-import com.linkedin.drelephant.util.{MemoryFormatUtils, Utils}
-import com.linkedin.drelephant.analysis.{ApplicationType, AnalyticJob, ElephantFetcher}
+import com.linkedin.drelephant.util.Utils
 import org.apache.commons.io.FileUtils
-
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, FileSystem}
-import org.apache.hadoop.hdfs.web.WebHdfsFileSystem
-import org.apache.hadoop.security.authentication.client.{AuthenticatedURL, AuthenticationException}
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.security.authentication.client.AuthenticatedURL
 import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
-import org.apache.spark.scheduler.{EventLoggingListener, ReplayListenerBus, ApplicationEventListener}
-import org.apache.spark.storage.{StorageStatusTrackingListener, StorageStatusListener}
+import org.apache.spark.io.CompressionCodec
+import org.apache.spark.scheduler.{ApplicationEventListener, EventLoggingListener, ReplayListenerBus}
+import org.apache.spark.storage.{StorageStatusListener, StorageStatusTrackingListener}
 import org.apache.spark.ui.env.EnvironmentListener
 import org.apache.spark.ui.exec.ExecutorsListener
 import org.apache.spark.ui.jobs.JobProgressListener
 import org.apache.spark.ui.storage.StorageListener
-import org.apache.spark.io.CompressionCodec
 import org.codehaus.jackson.JsonNode
 import org.codehaus.jackson.map.ObjectMapper
-
-import scala.collection.mutable.ArrayBuffer
 
 
 /**
@@ -80,16 +74,18 @@ class SparkFSFetcher(fetcherConfData: FetcherConfigurationData) extends Elephant
   /* Lazy loading for the log directory is very important. Hadoop Configuration() takes time to load itself to reflect
    * properties in the configuration files. Triggering it too early will sometimes make the configuration object empty.
    */
-  private lazy val _logDir: String = {
-    val conf = new Configuration()
-    val nodeAddress = getNamenodeAddress(conf);
-    val hdfsAddress = if (nodeAddress == null) "" else "webhdfs://" + nodeAddress
+//  private lazy val _logDir: String = {
+//    val conf = new Configuration()
+//    val nodeAddress = getNamenodeAddress(conf)
+//    val hdfsAddress = if (nodeAddress == null) "" else "webhdfs://" + nodeAddress
+//
+//    val uri = new URI(_sparkConf.get("spark.eventLog.dir", confEventLogDir))
+//    val logDir = hdfsAddress + uri.getPath
+//    logger.info("Looking for spark logs at logDir: " + logDir)
+//    logDir
+//  }
 
-    val uri = new URI(_sparkConf.get("spark.eventLog.dir", confEventLogDir))
-    val logDir = hdfsAddress + uri.getPath
-    logger.info("Looking for spark logs at logDir: " + logDir)
-    logDir
-  }
+  private val _logDir = confEventLogDir
 
   /**
    * Returns the namenode address of the  active nameNode
@@ -172,17 +168,7 @@ class SparkFSFetcher(fetcherConfData: FetcherConfigurationData) extends Elephant
 
   private val _security = new HadoopSecurity()
 
-  private def fs: FileSystem = {
-
-    // For test purpose, if no host presented, use the local file system.
-    if (new URI(_logDir).getHost == null) {
-      FileSystem.getLocal(new Configuration())
-    } else {
-      val filesystem = new WebHdfsFileSystem()
-      filesystem.initialize(new URI(_logDir), new Configuration())
-      filesystem
-    }
-  }
+  private lazy val fs: FileSystem = FileSystem.get(new Configuration())
 
   def fetchData(analyticJob: AnalyticJob): SparkApplicationData = {
     val appId = analyticJob.getAppId()
@@ -234,7 +220,6 @@ class SparkFSFetcher(fetcherConfData: FetcherConfigurationData) extends Elephant
           val sparkLogFileSuffix = Iterator("_1", "_2", "_3", "_4", "_5", ".inprogress", "")
           while (!foundIt && sparkLogFileSuffix.hasNext) {
             validPath = new Path(_logDir, appId + sparkLogFileSuffix.next())
-//            logger.info("[Meituan] TEST valid path: " + validPath.toString)
             if (fs.exists(validPath)) {
               println(validPath)
               foundIt = true
