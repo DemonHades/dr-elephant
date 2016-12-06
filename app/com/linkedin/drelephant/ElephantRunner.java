@@ -23,11 +23,13 @@ import com.linkedin.drelephant.util.Utils;
 import com.linkedin.drelephant.util.XMHandler;
 import controllers.MetricsController;
 import models.AppResult;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -35,6 +37,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.net.InetAddress;
 
 
 /**
@@ -50,17 +53,30 @@ public class ElephantRunner implements Runnable {
   private static final String FETCH_INTERVAL_KEY = "drelephant.analysis.fetch.interval";
   private static final String RETRY_INTERVAL_KEY = "drelephant.analysis.retry.interval";
   private static final String EXECUTOR_NUM_KEY = "drelephant.analysis.thread.count";
-  private static final String FEEDFACK_REPORT_ENABLE = "drelephant.analysis.report.feedback.enable";
 
   private AtomicBoolean _running = new AtomicBoolean(true);
   private long lastRun;
   private long _fetchInterval;
   private long _retryInterval;
   private int _executorNum;
-  private boolean _feedbackReportEnable;
   private HadoopSecurity _hadoopSecurity;
   private ThreadPoolExecutor _threadPoolExecutor;
   private AnalyticJobGenerator _analyticJobGenerator;
+
+  // add "HOPE~" by biyan
+  private static final String HOPE_LAUNCH_PORT = "drelephant.hope.launch.port";
+  private static final String HOPE_NOTIFY_ENABLE = "drelephant.analysis.hope.notify.enable";
+  private static final String HOPE_NOTIFY_ADMIN = "drelephant.analysis.hope.notify.admin";
+  private static final String HOPE_NOTIFY_COMMON_USER = "drelephant.analysis.hope.notify.common";
+  private static final String HOPE_NOTIFY_JOBTYPE = "drelephant.analysis.hope.notify.jobtype";
+
+  private String _hopeLaunchPort;
+  private boolean _hopeNotifyEnable;
+  private String _hopeNotifyAdmin;
+  private String _hopeNotifyJobType;
+  private String _hopeNotifyCommonUser;
+  private String _hopeNotifyMsgFormat = "嗨, %s: 作业（%s）执行完成，可点击查看[作业性能评估报告|%s]。" +
+          "\n对性能报告如有任何疑问、建议或意见，请联系%s.";
 
   private void loadGeneralConfiguration() {
     Configuration configuration = ElephantContext.instance().getGeneralConf();
@@ -68,7 +84,12 @@ public class ElephantRunner implements Runnable {
     _executorNum = Utils.getNonNegativeInt(configuration, EXECUTOR_NUM_KEY, EXECUTOR_NUM);
     _fetchInterval = Utils.getNonNegativeLong(configuration, FETCH_INTERVAL_KEY, FETCH_INTERVAL);
     _retryInterval = Utils.getNonNegativeLong(configuration, RETRY_INTERVAL_KEY, RETRY_INTERVAL);
-    _feedbackReportEnable = configuration.getBoolean(FEEDFACK_REPORT_ENABLE, false);
+
+    _hopeLaunchPort = configuration.get(HOPE_LAUNCH_PORT, "8080");
+    _hopeNotifyEnable = configuration.getBoolean(HOPE_NOTIFY_ENABLE, false);
+    _hopeNotifyAdmin = configuration.get(HOPE_NOTIFY_ADMIN, "");
+    _hopeNotifyJobType = configuration.get(HOPE_NOTIFY_JOBTYPE, "");
+    _hopeNotifyCommonUser = configuration.get(HOPE_NOTIFY_COMMON_USER, "");
   }
 
   private void loadAnalyticJobGenerator() {
@@ -172,7 +193,8 @@ public class ElephantRunner implements Runnable {
         logger.info(String.format("Analyzing %s", analysisName));
         AppResult result = _analyticJob.getAnalysis();
         result.save();
-        if (_feedbackReportEnable) {
+
+        if (_hopeNotifyEnable) {
           notifyOwner(_analyticJob);
         }
         long processingTime = System.currentTimeMillis() - analysisStartTimeMillis;
@@ -205,13 +227,32 @@ public class ElephantRunner implements Runnable {
   }
 
   private void notifyOwner(AnalyticJob analyticJob) {
+    logger.warn("Meituan Job AppID: " + analyticJob.getAppId()
+            + "\tJob Name: " + analyticJob.getName()
+            + "\tJob Owner: " + analyticJob.getOwner()
+            + "\tJob Source: " + analyticJob.getSource());
     String receiver = analyticJob.getOwner();
-    if (analyticJob.getSource() == "mtmsp" &&  receiver != "" && receiver != "sankuai") {
-      String msg = String.format(receiver + ": 检测到作业（%s）执行完成，特发送[作业性能评估报告|%s]，如有问题，请联系biyan@meituan.com",
-              analyticJob.getName(), "http://10.16.32.101:8419/search?id=" + analyticJob.getAppId());
-      logger.info("Meituan Notify: " + msg);
-      XMHandler.sendMessage(msg, "biyan");
+    if (analyticJob.getSource().equals(_hopeNotifyJobType)
+            && !receiver.equals("")
+            && !receiver.equals(_hopeNotifyCommonUser)) {
+      String[] receivers = StringUtils.split(receiver, ",");
+      String msg = String.format(_hopeNotifyMsgFormat, receiver, analyticJob.getName(),
+              getSearchURL(analyticJob.getAppId()), _hopeNotifyAdmin);
+      XMHandler.sendMessage(msg, receiver);
+      if (!_hopeNotifyAdmin.isEmpty())
+        XMHandler.sendMessage("少爷：请确认！\n" + msg, _hopeNotifyAdmin);
     }
+  }
+
+  private String getSearchURL(String appId) {
+    try {
+      InetAddress netAddress = InetAddress.getLocalHost();
+      String searchUrl = "http://" + netAddress.getHostAddress() + ":" + _hopeLaunchPort + "/search?id=" + appId;
+      return searchUrl;
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+    }
+    return "http://10.16.32.101:8080/search?id=" + appId;
   }
 
   private void waitInterval(long interval) {

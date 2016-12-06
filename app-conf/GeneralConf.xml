@@ -37,9 +37,30 @@
     <value>true</value>
     <description>If this property is "false", search will only make exact matches</description>
   </property>
+
   <property>
-    <name>drelephant.analysis.report.feedback.enable</name>
+    <name>drelephant.analysis.hope.launch.port</name>
+    <value>8080</value>
+    <description>the port Dr.Elephant uses</description>
+  </property>
+  <property>
+    <name>drelephant.analysis.hope.notify.enable</name>
     <value>true</value>
-    <description>If true, send analysis report to the job's owner</description>>
+    <description>If true, send the job's analysis report to the job's owner</description>
+  </property>
+  <property>
+    <name>drelephant.analysis.hope.notify.admin</name>
+    <value>biyan</value>
+    <description>the drelephant administrator</description>
+  </property>
+  <property>
+    <name>drelephant.analysis.hope.notify.jobtype</name>
+    <value>mtmsp</value>
+    <description>send the job's analysis report if job is submitted via `mtmsp`</description>
+  </property>
+  <property>
+    <name>drelephant.analysis.hope.notify.common</name>
+    <value>sankuai</value>
+    <description>the common user, which the report won't be send to</description>
   </property>
 </configuration>

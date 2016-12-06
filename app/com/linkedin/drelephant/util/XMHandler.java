@@ -35,10 +35,9 @@ public class XMHandler {
         logger.info("[Meituan] Pub init successfully!");
     }
 
-    public static boolean sendMessage(String msg, String receiver) {
+    public static boolean sendMessage(String msg, String... receiver) {
         try {
             JSONObject result = pusher.push(msg, receiver);
-            logger.info("[Meituan] Pub sent message successfully! result is " + result);
         } catch (Exception e) {
             logger.error("[Meituan] Pub failed to send message!");
             return false;
