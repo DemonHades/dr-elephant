@@ -55,6 +55,7 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
   public static final String SPARK_YARN_EXECUTOR_MEMORYOVERHEAD = "spark.yarn.executor.memoryOverhead";
   public static final String SPARK_DYNAMICALLOCATION_ENABLED = "spark.dynamicAllocation.enabled";
   public static final String SPARK_DYNAMICALLOCATION_MAXEXECUTORS = "spark.dynamicAllocation.maxExecutors";
+  public static final String SPARK_YARN_QUEUE = "spark.yarn.queue";
   public static final String NOT_PRESENT = "Not presented";
 
 
@@ -63,11 +64,11 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
       put(SPARK_APP_OWNER, "");
       put(SPARK_JOB_TYPE, "");
       put(SPARK_MASTER, "yarn-cluster");
-      put(SPARK_SERIALIZER, null);
+      put(SPARK_SERIALIZER, "JavaSerializer");
       put(SPARK_DRIVER_MEMORY, "1g");
       put(SPARK_EXECUTOR_MEMORY, "1g");
       put(SPARK_EXECUTOR_CORES, "1");
-      put(SPARK_SHUFFLE_MANAGER, null);
+      put(SPARK_SHUFFLE_MANAGER, "SORT");
       put(SPARK_EXECUTOR_INSTANCES, "2");
       put(SPARK_DRIVER_EXTRAJAVAOPTIONS, "");
       put(SPARK_EXECUTOR_EXTRAJAVAOPTIONS, "");
@@ -130,6 +131,8 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
     for (String key : SPARK_PROPERTY.keySet()) {
       sparkProperty.put(key, env.getSparkProperty(key, SPARK_PROPERTY.get(key)));
     }
+    // show queue info
+    sparkProperty.put(SPARK_YARN_QUEUE, env.getSparkProperty(SPARK_YARN_QUEUE, ""));
 
     int coreNum = sparkProperty.get(SPARK_EXECUTOR_CORES) == null ?
             1 : Integer.parseInt(sparkProperty.get(SPARK_EXECUTOR_CORES));

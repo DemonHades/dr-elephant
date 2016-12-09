@@ -372,6 +372,7 @@ public class AnalyticJob {
   public void addExtraJobInfo(HadoopApplicationData data) {
     try{
       SparkEnvironmentData sparkEnvironmentData = ((SparkApplicationData)data).getEnvironmentData();
+      sparkEnvironmentData.addSparkProperty("spark.yarn.queue", _queueName);
       String owner = sparkEnvironmentData.getSparkProperty(BestPropertiesConventionHeuristic.SPARK_APP_OWNER, "");
       String source = sparkEnvironmentData.getSparkProperty(BestPropertiesConventionHeuristic.SPARK_JOB_TYPE, "");
       setOwner(owner);
