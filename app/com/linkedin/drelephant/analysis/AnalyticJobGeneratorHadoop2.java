@@ -77,7 +77,7 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
             String resourceManagerURL = String.format(RM_NODE_STATE_URL, resourceManager);
             logger.info("Checking RM URL: " + resourceManagerURL);
             JsonNode rootNode = readJsonNode(new URL(resourceManagerURL));
-            String status = rootNode.path("clusterInfo").path("haState").getValueAsText();
+            String status = rootNode.path("clusterInfo").path("haState").asText();
             if (status.equals("ACTIVE")) {
               logger.info(resourceManager + " is ACTIVE");
               _resourceManagerAddress = resourceManager;
@@ -203,20 +203,20 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
     JsonNode apps = rootNode.path("apps").path("app");
 
     for (JsonNode app : apps) {
-      String appId = app.get("id").getValueAsText();
+      String appId = app.get("id").asText();
 
       // When called first time after launch, hit the DB and avoid duplicated analytic jobs that have been analyzed
       // before.
       if (_lastTime > 0 || (_lastTime == 0 && AppResult.find.byId(appId) == null)) {
-        String user = app.get("user").getValueAsText();
-        String name = app.get("name").getValueAsText();
-        String queueName = app.get("queue").getValueAsText();
-        String trackingUrl = app.get("trackingUrl") != null? app.get("trackingUrl").getValueAsText() : null;
+        String user = app.get("user").asText();
+        String name = app.get("name").asText();
+        String queueName = app.get("queue").asText();
+        String trackingUrl = app.get("trackingUrl") != null? app.get("trackingUrl").asText() : null;
         long startTime = app.get("startedTime").getLongValue();
         long finishTime = app.get("finishedTime").getLongValue();
 
         ApplicationType type =
-            ElephantContext.instance().getApplicationTypeForName(app.get("applicationType").getValueAsText());
+            ElephantContext.instance().getApplicationTypeForName(app.get("applicationType").asText());
 
         // If the application type is supported
         if (type != null) {
