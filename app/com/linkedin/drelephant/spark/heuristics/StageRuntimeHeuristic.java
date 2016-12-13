@@ -46,6 +46,7 @@ public class StageRuntimeHeuristic implements Heuristic<SparkApplicationData> {
   private double[] stageFailRateLimits = {0.3d, 0.3d, 0.5d, 0.5d};
   private double[] singleStageFailLimits = {0.0d, 0.3d, 0.5d, 0.5d};
   private double[] stageRuntimeLimits = {15, 30, 60, 60};
+  private double[] stageDataSkewLimits = {0.5d, 1.0d, 2.0d, 5.0d};
 
   private HeuristicConfigurationData _heuristicConfData;
 
@@ -103,31 +104,29 @@ public class StageRuntimeHeuristic implements Heuristic<SparkApplicationData> {
     endSeverity = Severity.max(endSeverity, getStageFailureRateSeverity(avgStageFailureRate));
 
     // For each completed stage, the task failure rate
-    List<String> problematicStages = new ArrayList<String>();
+//    List<String> problematicStages = new ArrayList<String>();
 
     for (SparkJobProgressData.StageAttemptId id : completedStages) {
       SparkJobProgressData.StageInfo info = jobProgressData.getStageInfo(id.stageId, id.attemptId);
       double stageTasksFailureRate = info.getFailureRate();
       Severity tasksFailureRateSeverity = getSingleStageTasksFailureRate(stageTasksFailureRate);
 
-      if (tasksFailureRateSeverity.getValue() > Severity.MODERATE.getValue()) {
-        problematicStages.add(String.format("%s (task failure rate: %1.3f)", id, stageTasksFailureRate));
-      }
+//      if (tasksFailureRateSeverity.getValue() > Severity.MODERATE.getValue()) {
+//        problematicStages.add(String.format("%s (task failure rate: %1.3f)", id, stageTasksFailureRate));
+//      }
 
-      long duration = info.duration;
-      Severity runtimeSeverity = getStageRuntimeSeverity(duration);
-      if (runtimeSeverity.getValue() > Severity.MODERATE.getValue()) {
-        problematicStages
-            .add(String.format("%s (runtime: %s)", id, Statistics.readableTimespan(duration)));
-      }
+//      long duration = info.duration;
+//      Severity runtimeSeverity = getStageRuntimeSeverity(duration);
+//      if (runtimeSeverity.getValue() > Severity.MODERATE.getValue()) {
+//        problematicStages
+//            .add(String.format("%s (runtime: %s)", id, Statistics.readableTimespan(duration)));
+//      }
 
-      endSeverity = Severity.max(endSeverity, tasksFailureRateSeverity, runtimeSeverity);
+      endSeverity = Severity.max(endSeverity, tasksFailureRateSeverity);
     }
 
-    HeuristicResult result = new HeuristicResult(_heuristicConfData.getClassName(),
-        _heuristicConfData.getHeuristicName(), endSeverity, 0);
-
     Map<SparkJobProgressData.StageAttemptId, SparkJobProgressData.StageInfo> stageInfos = jobProgressData.getStageInfo();
+    double dataskew = 0d;
     TreeMap<String, String> stageToDataSkew = new TreeMap<String, String>(
             new Comparator<String>(){
               @Override
@@ -140,32 +139,43 @@ public class StageRuntimeHeuristic implements Heuristic<SparkApplicationData> {
     );
     ArrayList<String> stageDataSkews = new ArrayList<String>();
 
-
     for (Map.Entry<SparkJobProgressData.StageAttemptId, SparkJobProgressData.StageInfo> entry : stageInfos.entrySet()) {
       List<Double> ds = entry.getValue().getTaskDataSkews();
       Double sum = 0.0d;
       for (Double elem : ds)
         sum += elem;
+      dataskew = Math.max(dataskew, sum);
       stageToDataSkew.put(String.format("%s$$%s", entry.getKey().name(), sum),
               getCollectionAsString(entry.getValue().getTaskDataSkews(), " "));
     }
+
+//    Severity dataSkewSeverity = getDataSkewSeverity(dataskew);
+//    endSeverity = Severity.max(endSeverity, dataSkewSeverity);
+
     int numLoop = Math.min(5, stageToDataSkew.size());
     for (int i = 0; i < numLoop; i++) {
       Map.Entry<String, String> first = stageToDataSkew.firstEntry();
-      stageDataSkews.add(first.getKey().split("\\$\\$", 2)[0] + "\t" + first.getValue());
+      stageDataSkews.add(first.getKey().split("\\$\\$", 2)[0] + "\t\t" + first.getValue());
       stageToDataSkew.remove(first.getKey());
     }
-
     if (!stageDataSkews.isEmpty())
       stageDataSkews.add(0, "Stage\t" + StringUtils.join(jobProgressData.getDataSkewSchema(), " "));
+
+    HeuristicResult result = new HeuristicResult(_heuristicConfData.getClassName(),
+            _heuristicConfData.getHeuristicName(), endSeverity, 0);
 
     result.addResultDetail("Spark data skewness per stage", getStagesAsString(stageDataSkews));
     result.addResultDetail("Spark stage completed", String.valueOf(completedStages.size()));
     result.addResultDetail("Spark stage failed", String.valueOf(failedStages.size()));
     result.addResultDetail("Spark average stage failure rate", String.format("%.3f", avgStageFailureRate));
-    result.addResultDetail("Spark problematic stages", getStagesAsString(problematicStages));
+//    result.addResultDetail("Spark problematic stages", getStagesAsString(problematicStages));
 
     return result;
+  }
+
+  private Severity getDataSkewSeverity(double dataskew) {
+    return Severity.getSeverityAscending(
+            dataskew, stageDataSkewLimits[0], stageDataSkewLimits[1], stageDataSkewLimits[2], stageDataSkewLimits[3]);
   }
 
   private Severity getStageRuntimeSeverity(long runtime) {

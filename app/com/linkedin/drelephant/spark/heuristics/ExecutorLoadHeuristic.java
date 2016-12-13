@@ -19,16 +19,17 @@ package com.linkedin.drelephant.spark.heuristics;
 import com.linkedin.drelephant.analysis.Heuristic;
 import com.linkedin.drelephant.analysis.HeuristicResult;
 import com.linkedin.drelephant.analysis.Severity;
+import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.math.Statistics;
 import com.linkedin.drelephant.spark.data.SparkApplicationData;
 import com.linkedin.drelephant.spark.data.SparkExecutorData;
-import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 import com.linkedin.drelephant.util.MemoryFormatUtils;
 import com.linkedin.drelephant.util.Utils;
+import org.apache.log4j.Logger;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import org.apache.log4j.Logger;
 
 import static com.linkedin.drelephant.spark.data.SparkExecutorData.EXECUTOR_DRIVER_NAME;
 
@@ -39,6 +40,8 @@ import static com.linkedin.drelephant.spark.data.SparkExecutorData.EXECUTOR_DRIV
 public class ExecutorLoadHeuristic implements Heuristic<SparkApplicationData> {
   private static final Logger logger = Logger.getLogger(ExecutorLoadHeuristic.class);
   private static final long MEMORY_OBSERVATION_THRESHOLD = MemoryFormatUtils.stringToBytes("1 MB");
+
+  public static final String SPARK_DYNAMICALLOCATION_ENABLED = "spark.dynamicAllocation.enabled";
 
   // Severity parameters.
   private static final String LOOSER_METRIC_DEV_SEVERITY = "looser_metric_deviation_severity";
@@ -140,6 +143,9 @@ public class ExecutorLoadHeuristic implements Heuristic<SparkApplicationData> {
 
   @Override
   public HeuristicResult apply(SparkApplicationData data) {
+    boolean dynamicAllocationEnabled = Boolean.parseBoolean(
+            data.getEnvironmentData().getSparkProperty(SPARK_DYNAMICALLOCATION_ENABLED, "false"));
+
     SparkExecutorData executorData = data.getExecutorData();
     Set<String> executors = executorData.getExecutors();
 
@@ -172,8 +178,9 @@ public class ExecutorLoadHeuristic implements Heuristic<SparkApplicationData> {
         i += 1;
       }
     }
-
-    Severity severity = Severity.max(getLooserMetricDeviationSeverity(peakMems), getMetricDeviationSeverity(durations),
+    Severity severity = Severity.NONE;
+    if (!dynamicAllocationEnabled)
+      severity = Severity.max(getLooserMetricDeviationSeverity(peakMems), getMetricDeviationSeverity(durations),
         getMetricDeviationSeverity(inputBytes), getLooserMetricDeviationSeverity(outputBytes));
 
     HeuristicResult result = new HeuristicResult(_heuristicConfData.getClassName(),

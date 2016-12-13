@@ -37,7 +37,8 @@ public class SparkJobProgressData {
   private final Set<StageAttemptId> _failedStages = new HashSet<StageAttemptId>();
 
   // InputBytes => IB, OutputBytes => OB, ShuffleReadBytes => SRB, ShuffleWriteBytes => SWB
-  private final List<String> _dataskewSchema = new ArrayList<String>(Arrays.asList("IB", "OB", "SRB", "SWB"));
+  private final List<String> _dataskewSchema =
+          new ArrayList<String>(Arrays.asList("Input", "Output", "ShuffleRead", "ShuffleWrite"));
 
   public void addJobInfo(int jobId, JobInfo info) {
     _jobIdToInfo.put(jobId, info);
