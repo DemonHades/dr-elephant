@@ -75,7 +75,7 @@ public class ElephantRunner implements Runnable {
   private String _hopeNotifyAdmin;
   private String _hopeNotifyJobType;
   private String _hopeNotifyCommonUser;
-  private String _hopeNotifyMsgFormat = "嗨, %s: 作业（%s）执行完成，可点击查看[作业性能评估报告|%s]。" +
+  private String _hopeNotifyMsgFormat = "嗨, %s: 作业（%s）执行完成，可点击查看[作业性能评估报告|%s]，并基于此进一步优化作业。" +
           "\n对性能报告如有任何疑问、建议或意见，请联系%s.";
 
   private void loadGeneralConfiguration() {
@@ -238,7 +238,7 @@ public class ElephantRunner implements Runnable {
       String[] receivers = StringUtils.split(receiver, ",");
       String msg = String.format(_hopeNotifyMsgFormat, receiver, analyticJob.getName(),
               getSearchURL(analyticJob.getAppId()), _hopeNotifyAdmin);
-      XMHandler.sendMessage(msg, receiver);
+      XMHandler.sendMessage(msg, receivers);
       if (!_hopeNotifyAdmin.isEmpty())
         XMHandler.sendMessage("少爷：请确认！\n" + msg, _hopeNotifyAdmin);
     }
