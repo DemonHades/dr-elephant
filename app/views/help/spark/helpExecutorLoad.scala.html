@@ -13,10 +13,44 @@
 * License for the specific language governing permissions and limitations under
 * the License.
 *@
+<!--
 <p>
   Unlike Map/Reduce jobs, a Spark application allocates its resources all at once and never release any during the
   the entire runtime process until everything is finished. It is critical to optimize the load balance situation of
   executors to avoid excessive usage of the cluster.
+</p>
+-->
+<p>
+  该模块指示每个executor的负载是否均衡。
+  <br>在没有开启动态资源分配策略的情况下，不同于MapReduce作业，Spark一次性申请所有资源，直至作业完成才会释放。
+  因此优化每个executor的负载均衡，防止executor过分空闲或者过分使用，都是很重要的。
+  <br>该模块分别从每个executor缓存数据使用的内容，executor运行时长，以及输入、输出四个维度来衡量。
+  <br>每个维度的负载均衡因子计算公式为<strong>diffFactor = max{|max-avg|, |avg-min|} / avg</strong>。
+  <br>该模块的评定等级取以下各细分指标的最大值，当开启动态资源分配策略时，暂固定为None。
+  <br>
+  <table class="list-group-item-text table table-condensed left-table">
+    <tbody>
+      <tr>
+        <td></td><td>None</td><td>Low</td><td>Moderate</td><td>Severe</td><td>Critical</td>
+      </tr>
+      <tr>
+        <td>Average peak storage memory</td>
+        <td>(--, 0.8)</td><td>[0.8, 1)</td><td>[1, 1.2)</td><td>[1.2, 1.4)</td><td>[1.4, --)</td>
+      </tr>
+      <tr>
+        <td>Average runtime</td>
+        <td>(--, 0.4)</td><td>[0.4, 0.6)</td><td>[0.6, 0.8)</td><td>[0.8, 1.0)</td><td>[1.0, --)</td>
+      </tr>
+      <tr>
+        <td>Average output size</td>
+        <td>(--, 0.8)</td><td>[0.8, 1)</td><td>[1, 1.2)</td><td>[1.2, 1.4)</td><td>[1.4, --)</td>
+      </tr>
+      <tr>
+        <td>Average input size</td>
+        <td>(--, 0.4)</td><td>[0.4, 0.6)</td><td>[0.6, 0.8)</td><td>[0.8, 1.0)</td><td>[1.0, --)</td>
+      </tr>
+    </tbody>
+  </table>
 </p>
 <h5>Example</h5>
 <div name="SparkExecutorLoadBalance" class="list-group-item list-group-item-danger">
@@ -30,14 +64,6 @@
     </thead>
     <tbody>
       <tr>
-        <td>Average peak storage memory</td>
-        <td>1.09 GB (0 B~2.04 GB)</td>
-      </tr>
-      <tr>
-        <td>Average runtime</td>
-        <td>12min 55sec (0 sec~31min 50sec)</td>
-      </tr>
-      <tr>
         <td>Average input size</td>
         <td>125.95 GB (0 B~304.21 GB)</td>
       </tr>
@@ -46,17 +72,43 @@
         <td>0 B (0 B~0 B)</td>
       </tr>
       <tr>
+        <td>Average runtime</td>
+        <td>12min 55sec (0 sec~31min 50sec)</td>
+      </tr>
+      <tr>
+        <td>Average peak storage memory</td>
+        <td>1.09 GB (0 B~2.04 GB)</td>
+      </tr>
+      <!--
+      <tr>
         <td>Average task number</td>
         <td>399 (0~962)</td>
       </tr>
+      -->
     </tbody>
   </table>
 </div>
 
 <h3>Suggestions</h3>
+<h5>存在未使用的executor（如：最小的输入/输出/运行时间等于0）</h5>
+<p>
+  尽管Spark会一次性申请所需资源（非动态资源分配策略下），但是Yarn依然会逐步分配资源。
+  在有未使用的executor的情况下，用户应该减少资源的申请。因为，即使仅部分资源被分配，Spark作业依然会开始执行。
+  资源分配的速度取决于集群的负载。
+  通常，申请较少的executor及较少的内存，会缩短整个资源分配的时间。
+</p>
+
+<h5>存在某指标的最大最小值的差值较大</h5>
+<p>
+  若为input指标，可以根据StageRuntime模块的数据倾斜指标（Spark data skewness per stage）进一步判断。
+  当runtime指标，再排除了数据倾斜的情况下，可以通过开启推测执行，避免由于慢节点引起的某task明显的执行缓慢。
+</p>
+
+<!--
 <h5><strong>1. If there are unused executors (0 tasks, 0 seconds to run and etc.) </strong></h5>
 <p>
-  Even though a Spark application asks for all the resources all at once, YARN will only grant resources gradually. Users should try to allocate less in this case since those resources won't be used anyway. An
+  Even though a Spark application asks for all the resources all at once, YARN will only grant resources gradually.
+  Users should try to allocate less in this case since those resources won't be used anyway. An
   application will kick off even only part of the resources are allocated. The allocation speed is majorly depending on
   how busy the cluster is. However, oftentime, asking for less memory per executor and less executor in total will
   always help shorten the entire allocation time.
@@ -71,3 +123,4 @@
   A good choice of partition number should be equal to or slightly less than <strong>k*[executor num]</strong> where
   <strong>k</strong> is an integer around 2~5.
 </p>
+-->

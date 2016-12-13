@@ -13,11 +13,56 @@
 * License for the specific language governing permissions and limitations under
 * the License.
 *@
+<!--
 <p>
 One Spark application can be broken into multiple jobs and each jobs can be broken into multiple stages.
 </p>
+-->
+<p>
+  该模块反映Spark作业在Stage粒度上的性能。
+  <br>该模块包含两方面的指标：Stage的失败率，及单Stage的数据倾斜率。
+  其中，每个Stage的数据倾斜分为四个维度：Input Bytes, Output Bytes, Shuffle Read Bytes, Shuffle Write Bytes。
+  每个Stage的数据倾斜率为四个维度的数据倾斜率的最大值。
+  <br>该模块的评定等级取以下各细分指标的最大值。
+  <br>
+  <table class="list-group-item-text table table-condensed left-table">
+    <tbody>
+      <tr>
+        <td></td><td>None</td><td>Low</td><td>Moderate</td><td>Severe</td><td>Critical</td>
+      </tr>
+      <tr>
+        <td>Stage的失败率</td>
+        <td>(--, 0.3)</td><td>--</td><td>[0.3, 0.5)</td><td>--</td><td>[0.5, --)</td>
+      </tr>
+      <tr>
+        <td>单Stage的数据倾斜率</td>
+        <td>(--, 0.5)</td><td>[0.5, 1.0)</td><td>[1.0, 2.0)</td><td>[2.0, 5.0)</td><td>[5.0, --)</td>
+      </tr>
+    </tbody>
+  </table>
+</p>
 <h3>Suggestions</h3>
 
+<h5>较高的Stage失败率</h5>
+<p>
+  较高的Stage的失败率可能由多种原因引起，如负载不均衡、存在数据倾斜，单个task分配的内存不足，单executor的并发度过高等等。
+  建议仔细查看详细的运行日志，精确的定位问题。
+</p>
+
+<h5>Stage运行缓慢</h5>
+<p>
+  Stage运行缓慢比较典型的原因是由于负载不均衡导致。建议将RDD划分到足够
+  （等于或略小于<strong>k * executor.instances * executor.cores</strong>, k可取[2-5]间的整数，当然也要结合队列资源而定）的分区进行处理。
+  <br>如果所有的executor在该Stage均运行缓慢，此时应该建议分配更多的executor。
+</p>
+
+<h5>数据倾斜</h5>
+<p>
+  每个Stage的数据倾斜分为四个维度：Input Bytes, Output Bytes, Shuffle Read Bytes, Shuffle Write Bytes。
+  暂仅提供了各Stage在各维度的倾斜率，可以根据SparkUI定位到具体的代码逻辑，采取重分区（repartition）或者为Key添加前缀的方式或者组合方式
+  对上一个Stage的输出进行重新分区，平衡数据。
+</p>
+<!--
 <h5><strong>1. High failure rate</strong></h5>
 <p>
   High failure rate can have multiple causes. Using more than 2 cores per executor in YARN, unstable implementation,
@@ -40,3 +85,4 @@ One Spark application can be broken into multiple jobs and each jobs can be brok
   Only the 5 stages whose sum of skewness of four indexes is the biggest is displayed here.
   The first field of each line, i.e. 1.0, means the stage's id is 1 and the attempt id of this stage is 0.
 </p>
+-->

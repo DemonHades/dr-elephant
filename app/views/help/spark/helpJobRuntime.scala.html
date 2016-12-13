@@ -13,11 +13,42 @@
 * License for the specific language governing permissions and limitations under
 * the License.
 *@
+<!--
 <p>
 One Spark application can be broken into multiple jobs and each jobs can be broken into multiple stages.
 </p>
-<h3>Suggestions</h3>
+-->
+<p>
+  该模块反映Spark作业在Job粒度上的性能。
+  <br>该模块包含两个指标，Job失败率（失败的Job数 / 完成的Job数），及单Job的Task失败率。
+  由于一个Spark作业可能含有多个Job，因此单Job的Task失败率取各个Job的Task失败率的最大值。
+  <br>该模块的评定等级取以下各细分指标的最大值。
+  <br>
+  <table class="list-group-item-text table table-condensed left-table">
+    <tbody>
+      <tr>
+        <td></td><td>None</td><td>Low</td><td>Moderate</td><td>Severe</td><td>Critical</td>
+      </tr>
+      <tr>
+        <td>Task Failure Rate of Single Job</td>
+        <td>(--, 0.0)</td><td>[0.0, 0.3)</td><td>[0.3, 0.5)</td><td>--</td><td>[0.5, --)</td>
+      </tr>
+      <tr>
+        <td>Job Failure Rate</td>
+        <td>(--, 0.1)</td><td>[0.1, 0.3)</td><td>[0.3, 0.5)</td><td>--</td><td>[0.5, --)</td>
+      </tr>
+    </tbody>
+  </table>
+</p>
 
+<h3>Suggestions</h3>
+<h5>较高的Job/Task失败率</h5>
+<p>
+  较高的Job/Task的失败率可能由多种原因引起，如负载不均衡、存在数据倾斜，单个task分配的内存不足，单executor的并发度过高等等。
+  建议仔细查看详细的运行日志，精确的定位问题。
+</p>
+
+<!--
 <h5><strong>1. High failure rate</strong></h5>
 <p>
   High failure rate can have multiple causes. Using more than 2 cores per executor in YARN, unstable implementation,
@@ -32,3 +63,4 @@ One Spark application can be broken into multiple jobs and each jobs can be brok
   However, if the slow job runtime seems to happen for all executors, this might suggest the executor number allocated
   is not large enough.
 </p>
+-->

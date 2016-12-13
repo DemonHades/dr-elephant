@@ -13,16 +13,46 @@
 * License for the specific language governing permissions and limitations under
 * the License.
 *@
+<!--
 <p>There are some spark property settings that are known to be good choices in most of the scenarios. Spark users are
   highly encouraged to adopt best practices whenever possible. Unaligned property settings will either yield to higher
   than severe level or merely moderate warnings. Please also refer to
   <a href="https://spark.apache.org/docs/1.5.2/configuration.html" target="_blank">Spark Configuration Doc</a>,
   <a href="https://spark.apache.org/docs/1.5.2/running-on-yarn.html" target="_blank">Running Spark on YARN</a>
   for property tuning beyond this page's suggestions. </p>
+-->
+<p>
+  该模块指示Spark作业在参数配置上的合理性。
+  <br>该模块的评定等级取以下各细分指标的最大值。
+  <br>
+  <table class="list-group-item-text table table-condensed left-table">
+    <tbody>
+      <tr>
+        <td></td><td>None</td><td>Low</td><td>Moderate</td><td>Severe</td><td>Critical</td>
+      </tr>
+      <tr>
+        <td>spark.driver.memory</td>
+        <td>(--, 4)</td><td>[4, 8)</td><td>[8, 12)</td><td>--</td><td>[12, --)</td>
+      </tr>
+      <tr>
+        <td>spark.executor.cores</td>
+        <td>(--, 4)</td><td>--</td><td>[4, 6)</td><td>--</td><td>[6, --)</td>
+      </tr>
+      <tr>
+        <td>spark.shuffle.manager</td>
+        <td>Sort</td><td>--</td><td>Hash</td><td>--</td><td>--</td>
+      </tr>
+      <tr>
+        <td>spark.serializer</td>
+        <td>kryoSerializer</td><td>--</td><td>JavaSerializer</td><td>--</td><td>--</td>
+      </tr>
+    </tbody>
+  </table>
+</p>
 
 <h3>Spark Resources</h3>
 <dl>
-  <dt>XMD Spark Resouces</dt>
+  <dt>内部整理文档</dt>
     <dd><a href="http://wiki.sankuai.com/pages/viewpage.action?pageId=358404145"
        target="_blank">Spark on Yarn Memory Layout</a></dd>
   <dd><a href="http://wiki.sankuai.com/pages/viewpage.action?pageId=370183116"
@@ -30,13 +60,44 @@
   <dd><a href="http://wiki.sankuai.com/display/DEV/Spark+Topic%3A+OOM" target="_blank">Spark Topic: OOM</a></dd>
   <dd><a href="http://wiki.sankuai.com/pages/viewpage.action?pageId=358403592" target="_blank">Tuning Spark</a></dd>
 
-  <dt>Official Documents</dt>
+  <dt>Spark官方文档</dt>
   <dd><a href="https://spark.apache.org/docs/1.5.2/configuration.html" target="_blank">Spark Configuration Doc</a></dd>
   <dd><a href="https://spark.apache.org/docs/1.5.2/running-on-yarn.html" target="_blank">Running Spark on YARN</a></dd>
 </dl>
 
 <h3>Suggestions</h3>
 
+<h4><strong>spark.driver.memory</strong></h4>
+<p>
+  <strong>spark.driver.memory</strong>默认值为1G。
+  当作业有必要的数据driver端聚合的需求，以及有较多的stage，且各stage的partition较多，可适当调高该参数。
+  一般情况下，我们推荐该参数控制在8G以下。
+</p>
+
+<h4><strong>spark.executor.cores</strong></h4>
+<p>
+  默认情况每个task占用一个cores，该参数可等同于在同一个executor内最多可并发执行的task数。
+  <strong>spark.executor.cores</strong>默认值为<strong>1</strong>.
+  受限于on Yarn的配置，参数不能高于<strong>8</strong>。但同时建议结合executor内存的分配调整cores参数，
+  尽量保证平均每个core能够分配到2G的内存（<strong>executor.memory / executor.cores</strong>）。
+</p>
+
+<h4>spark.dynamicAllocation.enabled</h4>
+<p>
+  通过参数<strong>--conf spark.dynamicAllocation.enabled=true</strong>开启动态资源分配策略。
+  <br>如果开启动态资源分配策略，Spark将根据作业负载动态调整要使用的executor的数量，自行申请/释放executor。关于更多细节请查看
+  <a href="http://spark.apache.org/docs/1.5.2/job-scheduling.html#dynamic-resource-allocation" target="_blank">动态资源分配策略</a>。
+</p>
+
+<h4><strong>spark.serializer</strong></h4>
+<p>
+  该参数用于指定序列化框架来序列化数据，该数据可能被用于网络传输，也可能需要以序列化的形式保存。
+  <br>默认的JavaSerialization框架，适用于所有可序列化的Java对象，但是效率也比较慢，
+  异常情况下可能会在Shuffle过程中引发OutOfMemroy的问题。
+  因此我们推荐使用<strong>org.apache.spark.serializer.KryoSerializer</strong>。
+</p>
+
+<!--
 <h4><strong>spark.serializer</strong></h4>
 <p>
   Class to use for serializing objects that will be sent over the network or need to be cached in serialized form.
@@ -67,3 +128,4 @@
   vCores available to it, causing frequent context switching and eventually slowing down your application
   with high failure rate. We suggest setting <strong>executor-cores <= 4</strong>.
 </p>
+-->

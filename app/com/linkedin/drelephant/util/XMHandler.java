@@ -20,9 +20,7 @@ public class XMHandler {
     private static String P2P_URL = "http://dxw-in.sankuai.com/api/pub/push";
     private static String BROADCAST_URL = "http://dxw-in.sankuai.com/api/pub/pubBroadcast";
 
-
     public static Pusher pusher;
-
 
     static {
         pusher = PusherBuilder.defaultBuilder()
