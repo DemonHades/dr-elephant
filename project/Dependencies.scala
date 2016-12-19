@@ -31,7 +31,7 @@ object Dependencies {
   lazy val HADOOP_VERSION = "hadoopversion"
   lazy val SPARK_VERSION = "sparkversion"
 
-  var hadoopVersion = "2.7.1"
+  var hadoopVersion = "2.7.1-mt-SNAPSHOT"
   if (System.getProperties.getProperty(HADOOP_VERSION) != null) {
     hadoopVersion = System.getProperties.getProperty(HADOOP_VERSION)
   }
@@ -58,6 +58,7 @@ object Dependencies {
 
   // Dependency coordinates
   var requiredDep = Seq(
+    "org.slf4j" % "slf4j-log4j12" % "1.7.6",
     "com.google.code.gson" % "gson" % gsonVersion,
     "com.google.guava" % "guava" % guavaVersion,
     "commons-codec" % "commons-codec" % commonsCodecVersion,
