@@ -31,6 +31,12 @@ object Dependencies {
   lazy val HADOOP_VERSION = "hadoopversion"
   lazy val SPARK_VERSION = "sparkversion"
 
+  var requiredResolvers = Seq(
+    "meituan-nexus-releases" at "http://maven.sankuai.com/nexus/content/repositories/releases/",
+    "meituan-nexus-snapshots" at "http://maven.sankuai.com/nexus/content/repositories/snapshots/",
+    "meituan-nexus-thirdparty" at "http://maven.sankuai.com/nexus/content/repositories/thirdparty/"
+  )
+
   var hadoopVersion = "2.7.1-mt-SNAPSHOT"
   if (System.getProperties.getProperty(HADOOP_VERSION) != null) {
     hadoopVersion = System.getProperties.getProperty(HADOOP_VERSION)

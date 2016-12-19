@@ -25,12 +25,7 @@ organization := "com.linkedin.drelephant"
 
 javacOptions in Compile ++= Seq("-source", "1.6", "-target", "1.6")
 
-//
-//resolvers += "meituan-nexus-releases" at "http://maven.sankuai.com/nexus/content/repositories/releases/"
-//
-//resolvers += "meituan-nexus-snapshots" at "http://maven.sankuai.com/nexus/content/repositories/snapshots/"
-//
-//resolvers += "meituan-nexus-thirdparty" at "http://maven.sankuai.com/nexus/content/repositories/thirdparty"
+resolvers ++= requiredResolvers
 
 libraryDependencies ++= dependencies
 
