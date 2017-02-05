@@ -56,6 +56,8 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
   public static final String SPARK_DYNAMICALLOCATION_ENABLED = "spark.dynamicAllocation.enabled";
   public static final String SPARK_DYNAMICALLOCATION_MAXEXECUTORS = "spark.dynamicAllocation.maxExecutors";
   public static final String SPARK_YARN_QUEUE = "spark.yarn.queue";
+  public static final String SPARK_DRIVER_HOST = "spark.driver.host";
+  public static final String SPARK_YARN_APP_DRIVER_CONTAINER_LOG_DIR = "spark.yarn.app.container.log.dir";
   public static final String NOT_PRESENT = "Not presented";
 
 
@@ -77,6 +79,7 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
       put(SPARK_YARN_EXECUTOR_MEMORYOVERHEAD, String.format("10%% * %s", SPARK_EXECUTOR_MEMORY));
       put(SPARK_DYNAMICALLOCATION_ENABLED, "false");
       put(SPARK_DYNAMICALLOCATION_MAXEXECUTORS, NOT_PRESENT);
+      put(SPARK_DRIVER_HOST, "");
     }
   };
 
@@ -131,7 +134,9 @@ public class BestPropertiesConventionHeuristic implements Heuristic<SparkApplica
     for (String key : SPARK_PROPERTY.keySet()) {
       sparkProperty.put(key, env.getSparkProperty(key, SPARK_PROPERTY.get(key)));
     }
-    // show queue info
+    // show queue info and driver container log url
+    String[] containerLogDir = env.getSparkProperty(SPARK_YARN_APP_DRIVER_CONTAINER_LOG_DIR, "").split("/");
+    sparkProperty.put(SPARK_YARN_APP_DRIVER_CONTAINER_LOG_DIR, containerLogDir[containerLogDir.length - 1]);
     sparkProperty.put(SPARK_YARN_QUEUE, env.getSparkProperty(SPARK_YARN_QUEUE, ""));
 
     int coreNum = sparkProperty.get(SPARK_EXECUTOR_CORES) == null ?
