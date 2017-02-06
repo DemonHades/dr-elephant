@@ -50,6 +50,7 @@ public class AnalyticJob {
   private String _owner;
   private String _source;
   private String _trackingUrl;
+  private String _finalStatus;
   private long _startTime;
   private long _finishTime;
 
@@ -173,6 +174,17 @@ public class AnalyticJob {
   }
 
   /**
+   * Sets the final status of the job
+   *
+   * @param finalStatus
+   * @return The analytic job
+   */
+  public AnalyticJob setFinalStatus(String finalStatus) {
+    this._finalStatus = finalStatus;
+    return this;
+  }
+
+  /**
    * Returns the application id
    *
    * @return The analytic job
@@ -233,6 +245,15 @@ public class AnalyticJob {
    */
   public long getFinishTime() {
     return _finishTime;
+  }
+
+  /**
+   * Returns the final status of the job.
+   *
+   * @return The final status
+   */
+  public String getFinalStatus() {
+    return _finalStatus;
   }
 
   /**
@@ -309,6 +330,7 @@ public class AnalyticJob {
     result.username = Utils.truncateField(getUser(), AppResult.USERNAME_LIMIT, getAppId());
     result.startTime = getStartTime();
     result.finishTime = getFinishTime();
+    result.finalStatus = getFinalStatus();
     result.name = Utils.truncateField(getName(), AppResult.APP_NAME_LIMIT, getAppId());
     result.jobType = Utils.truncateField(jobTypeName, AppResult.JOBTYPE_LIMIT, getAppId());
     result.resourceUsed = hadoopAggregatedData.getResourceUsed();

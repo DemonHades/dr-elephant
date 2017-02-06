@@ -18,19 +18,11 @@ package models;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.linkedin.drelephant.analysis.Severity;
-
 import com.linkedin.drelephant.util.Utils;
-import java.util.Date;
 import play.db.ebean.Model;
 
+import javax.persistence.*;
 import java.util.List;
-
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
 
 
 @Entity
@@ -60,6 +52,7 @@ public class AppResult extends Model {
       public static final String QUEUE_NAME = "queueName";
     public static final String START_TIME = "startTime";
     public static final String FINISH_TIME = "finishTime";
+    public static final String FINAL_STATUS = "finalStatus";
     public static final String TRACKING_URL = "trackingUrl";
     public static final String JOB_TYPE = "jobType";
     public static final String SEVERITY = "severity";
@@ -83,7 +76,7 @@ public class AppResult extends Model {
 
   public static String getSearchFields() {
     return Utils.commaSeparated(AppResult.TABLE.NAME, AppResult.TABLE.USERNAME, TABLE.QUEUE_NAME, AppResult.TABLE.JOB_TYPE,
-        AppResult.TABLE.SEVERITY, AppResult.TABLE.FINISH_TIME);
+        AppResult.TABLE.SEVERITY, AppResult.TABLE.FINISH_TIME, TABLE.FINAL_STATUS);
   }
 
   @Id
@@ -104,6 +97,9 @@ public class AppResult extends Model {
 
   @Column(nullable = false)
   public long finishTime;
+
+  @Column(nullable = false)
+  public String finalStatus;
 
   @Column(length = TRACKING_URL_LIMIT, nullable = false)
   public String trackingUrl;

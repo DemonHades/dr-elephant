@@ -24,6 +24,7 @@ CREATE TABLE yarn_app_result (
   queue_name       VARCHAR(50)   DEFAULT NULL          COMMENT 'The queue the application was submitted to',
   start_time       BIGINT        UNSIGNED NOT NULL     COMMENT 'The time in which application started',
   finish_time      BIGINT        UNSIGNED NOT NULL     COMMENT 'The time in which application finished',
+  final_status     VARCHAR(50)   NOT NULL              COMMENT 'The final status',
   tracking_url     VARCHAR(255)  NOT NULL              COMMENT 'The web URL that can be used to track the application',
   job_type         VARCHAR(20)   NOT NULL              COMMENT 'The Job Type e.g, Pig, Hive, Spark, HadoopJava',
   severity         TINYINT(2)    UNSIGNED NOT NULL     COMMENT 'Aggregate severity of all the heuristics. Ranges from 0(LOW) to 4(CRITICAL)',

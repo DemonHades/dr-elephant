@@ -214,6 +214,7 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
         String trackingUrl = app.get("trackingUrl") != null? app.get("trackingUrl").asText() : null;
         long startTime = app.get("startedTime").getLongValue();
         long finishTime = app.get("finishedTime").getLongValue();
+        String finalStatus = app.get("finalStatus").getTextValue();
 
         ApplicationType type =
             ElephantContext.instance().getApplicationTypeForName(app.get("applicationType").asText());
@@ -222,7 +223,8 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
         if (type != null) {
           AnalyticJob analyticJob = new AnalyticJob();
           analyticJob.setAppId(appId).setAppType(type).setUser(user).setName(name).setQueueName(queueName)
-              .setTrackingUrl(trackingUrl).setStartTime(startTime).setFinishTime(finishTime);
+                  .setTrackingUrl(trackingUrl).setStartTime(startTime).setFinishTime(finishTime)
+                  .setFinalStatus(finalStatus);
 
           appList.add(analyticJob);
         }
